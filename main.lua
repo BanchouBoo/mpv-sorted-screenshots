@@ -87,7 +87,7 @@ local function screenshot(...)
                 path = mp.get_property_native('media-title')
             end
 
-            -- strip http(s):// and www. and other extraneous elements
+            -- strip http(s):// and www.
             folder = path:gsub('^.*://', ''):gsub('^www%.', '')
 
             -- normalize youtube links
