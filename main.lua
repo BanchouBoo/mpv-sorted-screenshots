@@ -1,17 +1,18 @@
 local utils = require 'mp.utils'
 local options = require 'mp.options'
 
+local is_windows = package.config:sub(1,1) == "\\"
+
 local opts = {
     ['nested-directory-mirrors'] = 1
 }
 
-local function split_string(input, separator)
-    if not separator then return { input } end
-    local output = {}
-    for match in string.gmatch(input, '([^'.. separator ..']+)') do
-        table.insert(output, match)
+local function split_path(path)
+    local result = {}
+    for part in path:gmatch('([^/\\]+)') do
+        result[#result + 1] = part
     end
-    return output
+    return result
 end
 
 local function is_local_file(path)
@@ -40,6 +41,14 @@ local function get_formatted_time(seconds)
     return table.concat(builder, ':')
 end
 
+local function create_directory(path)
+    if is_windows then
+        mp.command_native({ name = 'subprocess', args = { 'cmd', '/c', 'mkdir', path }})
+    else
+        mp.command_native({ name = 'subprocess', args = { 'mkdir', '-p', path }})
+    end
+end
+
 local function screenshot(...)
     local base_directory = mp.command_native({
         'expand-path',
@@ -54,25 +63,26 @@ local function screenshot(...)
     if is_local_file(path) then
         local full_path = mp.command_native({'normalize-path', path})
 
-        local split_path = split_string(full_path, '/')
-        local parent_count = math.min(#split_path - 1, opts['nested-directory-mirrors'])
+        local path_parts = split_path(full_path)
+        local parent_count = math.min(#path_parts - 1, opts['nested-directory-mirrors'])
 
         local final_directory_builder = { base_directory }
-        for i = #split_path - parent_count, #split_path do
-            final_directory_builder[#final_directory_builder + 1] = split_path[i]
+        for i = #path_parts - parent_count, #path_parts do
+            final_directory_builder[#final_directory_builder + 1] = path_parts[i]
         end
-        local final_directory = table.concat(final_directory_builder, '/')
-
-        mp.command_native({
-            name = 'subprocess',
-            args = { 'mkdir', '-p', final_directory }
+        local final_directory = mp.command_native({ 'normalize-path',
+            table.concat(final_directory_builder, '/')
         })
+
+        create_directory(final_directory)
 
         local final_file = table.concat({
             get_formatted_time(mp.get_property_native('time-pos')),
             mp.get_property_native('screenshot-format')
         }, '.')
-        local final_path = utils.join_path(final_directory, final_file)
+        local final_path = mp.command_native({ 'normalize-path',
+            utils.join_path(final_directory, final_file)
+        })
 
         mp.command_native({'screenshot-to-file', final_path, ...})
         mp.osd_message("Screenshot: " .. final_path .. "'")
@@ -120,5 +130,4 @@ local function screenshot(...)
     end
 end
 
--- TODO: don't use forced keybindings
 mp.add_key_binding(nil, 'sorted-screenshot', screenshot)
