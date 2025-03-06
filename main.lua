@@ -4,8 +4,10 @@ local options = require 'mp.options'
 local is_windows = package.config:sub(1,1) == "\\"
 
 local opts = {
-    ['nested-directory-mirrors'] = 1
+    ['nested-directory-level'] = 1
 }
+options.read_options(opts)
+options.read_options(opts, "mpv-sorted-screenshots")
 
 local function split_path(path)
     local result = {}
@@ -64,7 +66,7 @@ local function screenshot(...)
         local full_path = mp.command_native({'normalize-path', path})
 
         local path_parts = split_path(full_path)
-        local parent_count = math.min(#path_parts - 1, opts['nested-directory-mirrors'])
+        local parent_count = math.min(#path_parts - 1, opts['nested-directory-level'])
 
         local final_directory_builder = { base_directory }
         for i = #path_parts - parent_count, #path_parts do
